@@ -1,0 +1,166 @@
+// prisma/schema.prisma
+// SQLite for dev. To switch to Postgres:
+//   1. Change provider to "postgresql"
+//   2. Update DATABASE_URL in .env to a postgres:// connection string
+//   3. Run: prisma migrate dev
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Team
+// ---------------------------------------------------------------------------
+model Team {
+  id         Int     @id          // API-NBA numeric team id
+  name       String               // full team name, e.g. "Los Angeles Lakers"
+  nickname   String               // short name, e.g. "Lakers"
+  city       String               // e.g. "Los Angeles"
+  logo       String?              // URL to team logo
+  conference String?              // "East" | "West"
+  division   String?              // "Northwest" | "Atlantic" | etc.
+
+  homeGames        Game[]                @relation("HomeTeam")
+  awayGames        Game[]                @relation("AwayTeam")
+  players          Player[]
+  statusSnapshots  PlayerStatusSnapshot[]
+  statusChangeLogs StatusChangeLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Player
+// ---------------------------------------------------------------------------
+model Player {
+  id        Int     @id          // API-NBA numeric player id
+  firstname String
+  lastname  String
+  position  String?
+  jersey    String?
+  teamId    Int?
+  team      Team?   @relation(fields: [teamId], references: [id])
+
+  snapshots        PlayerStatusSnapshot[]
+  statusChangeLogs StatusChangeLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Game
+// ---------------------------------------------------------------------------
+model Game {
+  id         Int     @id          // API-NBA numeric game id
+  date       String               // YYYY-MM-DD (America/Chicago date)
+  startTimeUtc String?            // ISO 8601 UTC string from API
+  status     String               // "NS" | "LIVE" | "FT" (API short status)
+  statusLong String?              // "Not Started" | "Quarter 3" | "Finished"
+  period     Int?                 // current period if live
+  clock      String?              // game clock if live
+
+  homeTeamId Int
+  homeTeam   Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId Int
+  awayTeam   Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  homeScore  Int?
+  awayScore  Int?
+
+  season     Int?
+  league     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// PlayerStatusSnapshot
+// Stores the player's status at each refresh. Enables diffing.
+// ---------------------------------------------------------------------------
+model PlayerStatusSnapshot {
+  id          Int    @id @default(autoincrement())
+  playerId    Int
+  player      Player @relation(fields: [playerId], references: [id])
+  teamId      Int
+  team        Team   @relation(fields: [teamId], references: [id])
+  date        String // YYYY-MM-DD (the game/injury date bucket)
+
+  status      String  // e.g. "OUT", "DOUBTFUL", "QUESTIONABLE", "PROBABLE", "ACTIVE"
+  injury      String? // injury type label from API, e.g. "Knee"
+  description String? // free-text reason, e.g. "Left knee soreness"
+  source      String  @default("API-NBA")
+
+  snapshotAt DateTime @default(now())
+
+  @@index([playerId, teamId, date])
+  @@index([date])
+  @@index([snapshotAt])
+}
+
+// ---------------------------------------------------------------------------
+// StatusChangeLog
+// Written when a player's status differs from the PREVIOUS snapshot.
+// ---------------------------------------------------------------------------
+model StatusChangeLog {
+  id         Int    @id @default(autoincrement())
+  playerId   Int
+  player     Player @relation(fields: [playerId], references: [id])
+  teamId     Int
+  team       Team   @relation(fields: [teamId], references: [id])
+  date       String // YYYY-MM-DD
+
+  fromStatus String // what it was before
+  toStatus   String // what it is now
+
+  changedAt DateTime @default(now())
+
+  @@index([date])
+  @@index([playerId, date])
+  @@index([teamId, date])
+}
+
+// ---------------------------------------------------------------------------
+// DailyBrief
+// One row per calendar date. Regenerated on every refresh.
+// ---------------------------------------------------------------------------
+model DailyBrief {
+  id             Int    @id @default(autoincrement())
+  date           String @unique // YYYY-MM-DD
+
+  gamesCount     Int
+  injuriesCount  Int    // non-active players
+  changesCount   Int    // status changes today
+  notableReturns String // JSON: [{playerId, firstname, lastname, teamName}]
+
+  generatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+}
+
+// ---------------------------------------------------------------------------
+// RefreshLog
+// Rate-limit guard: prevents duplicate refreshes within 5 minutes.
+// ---------------------------------------------------------------------------
+model RefreshLog {
+  id          Int      @id @default(autoincrement())
+  date        String                    // YYYY-MM-DD
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  success     Boolean  @default(false)
+  gamesCount  Int?
+  injuriesCount Int?
+  changesCount  Int?
+  errorMessage  String?
+
+  @@index([date])
+  @@index([startedAt])
+}
