@@ -2,19 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #111111;
-}
+@layer base {
+  html {
+    background-color: #070b18;
+    color: #f1f5f9;
+    font-family: system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f0e2a;
-    --foreground: #f0f0f0;
+  body {
+    background-color: #070b18;
+    min-height: 100dvh;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
+@layer components {
+  /* Pill tab bar */
+  .tab-pill {
+    @apply px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-150;
+  }
+  .tab-pill-active {
+    @apply bg-accent-green text-navy-950;
+  }
+  .tab-pill-inactive {
+    @apply text-slate-400 hover:text-white;
+  }
+
+  /* Game card */
+  .game-card {
+    @apply rounded-2xl bg-navy-800 shadow-card p-4 border border-white/5 space-y-3;
+  }
+
+  /* Status badge */
+  .badge-live {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent-green/15 text-accent-green text-xs font-bold tracking-wide;
+  }
+  .badge-final {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full bg-white/10 text-slate-300 text-xs font-semibold;
+  }
+  .badge-scheduled {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full bg-accent-blue/15 text-accent-blue text-xs font-semibold;
+  }
+
+  /* Status pill — injury */
+  .status-out         { @apply bg-red-500/20 text-red-400; }
+  .status-doubtful    { @apply bg-orange-500/20 text-orange-400; }
+  .status-questionable{ @apply bg-yellow-500/20 text-yellow-400; }
+  .status-probable    { @apply bg-blue-500/20 text-blue-400; }
+  .status-active      { @apply bg-accent-green/20 text-accent-green; }
+
+  /* Section header */
+  .section-label {
+    @apply text-xs font-bold uppercase tracking-widest text-slate-500;
+  }
 }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
